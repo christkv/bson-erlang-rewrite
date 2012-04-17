@@ -8,6 +8,10 @@
 % Exporting all availble types
 -export_type ([utf8/0]).
 
+% -include ("bson.hrl").
+-define (put_int32 (N), (N):32/signed-little).
+
+
 % Calculate the size of the document so we can do a single allocation of a binary
 calculate_document_size(Doc) -> 
 	% Return the size of the document we passed in
@@ -36,11 +40,31 @@ calculate_document_size_objects([]) ->
 
 % Serialize document
 serialize(Doc) ->
+	erlang:display("-------------------------------------------------- PRE DOC"),
 	erlang:display(Doc),
-	Size = calculate_document_size(Doc),
-	erlang:display(Size),
-	<<>>.
+	BinDoc = serialize_doc(Doc),
+	erlang:display("-------------------------------------------------- POST DOC"),
+	erlang:display(BinDoc),
+	BinDoc.
 	
+serialize_doc(Doc) ->
+	% Create final binary
+	Bin = list_to_binary(serialize_doc_objects(Doc)),
+	% Add document header
+	list_to_binary([<<?put_int32(byte_size(Bin) + 4 + 1)>>, Bin, <<0>>]).
+
+serialize_doc_objects([Head|Tail]) ->
+	case Head of
+		{Name, [Value]} when is_binary(Name), is_binary(Value) -> 			
+			erlang:display("================================== calculate_document_size string"),			
+			% "\x02" cstring int32 cstring"
+			[list_to_binary([<<02>>, Name, <<0>>, <<?put_int32(byte_size(Value) + 1)>>, Value, <<0>>])];
+		_ -> 
+			erlang:display("================================== calculate_document_size done"),			
+			serialize_doc_objects(Tail)
+	end;
+serialize_doc_objects([]) -> [].
+
 % Deserialize document
 deserialize(BinDoc) ->
 	[].
