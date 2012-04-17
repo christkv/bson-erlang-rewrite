@@ -8,62 +8,60 @@
 % Exporting all availble types
 -export_type ([utf8/0]).
 
-% -include ("bson.hrl").
--define (put_int32 (N), (N):32/signed-little).
-
-
-% Calculate the size of the document so we can do a single allocation of a binary
-calculate_document_size(Doc) -> 
-	% Return the size of the document we passed in
-	4 + 1 + calculate_document_size_objects(Doc).
-
-calculate_document_size_objects([Head|Tail]) ->
-	erlang:display("================================== calculate_document_size"),
-	erlang:display(Head),
-	
-	case Head of
-		{Name, [Value]} when is_binary(Name), is_binary(Value) -> 			
-			erlang:display("================================== calculate_document_size string"),
-			% "\x02" cstring int32 cstring"
-			1 + (byte_size(Name) + 1) + 4 + (byte_size(Value) + 1);
-		_ -> calculate_document_size(Tail)
-	end;
-calculate_document_size_objects([]) ->
-	erlang:display("================================== calculate_document_size end"),
-	0.
-	% % Keys = orddict:keys(Doc),
-	% Sizes = orddict:map(fun(X, Y) -> 
-	% 	X
-	% end, Doc),
-	% erlang:display(Sizes),
-	% 0.
+% Include the macros for writing code
+-include ("bson.hrl").
 
 % Serialize document
 serialize(Doc) ->
-	erlang:display("-------------------------------------------------- PRE DOC"),
-	erlang:display(Doc),
+	% erlang:display("-------------------------------------------------- PRE DOC"),
+	% erlang:display(Doc),
 	BinDoc = serialize_doc(Doc),
-	erlang:display("-------------------------------------------------- POST DOC"),
-	erlang:display(BinDoc),
+	% erlang:display("-------------------------------------------------- POST DOC"),
+	% erlang:display(BinDoc),
 	BinDoc.
 	
 serialize_doc(Doc) ->
+	erlang:display("----------------------------------------------- serialize_doc"),
 	% Create final binary
 	Bin = list_to_binary(serialize_doc_objects(Doc)),
 	% Add document header
 	list_to_binary([<<?put_int32(byte_size(Bin) + 4 + 1)>>, Bin, <<0>>]).
 
-serialize_doc_objects([Head|Tail]) ->
+serialize_doc_objects([Head|Tail]) ->	
 	case Head of
 		{Name, [Value]} when is_binary(Name), is_binary(Value) -> 			
-			erlang:display("================================== calculate_document_size string"),			
-			% "\x02" cstring int32 cstring"
+			erlang:display("================================== serialize string"),
 			[list_to_binary([<<02>>, Name, <<0>>, <<?put_int32(byte_size(Value) + 1)>>, Value, <<0>>])];
+		{Name, [Value]} when is_binary(Name), is_float(Value) -> 			
+			erlang:display("================================== serialize float"),
+			[list_to_binary([<<16#01>>, Name, <<0>>, <<?put_float(Value)>>])];
+		{Name, [Value]} when is_binary(Name), is_integer(Value), ?fits_int32(Value) -> 			
+			erlang:display("================================== serialize 32 bit integer"),
+			[list_to_binary([<<16#10>>, Name, <<0>>, <<?put_int32(Value)>>])];
+		{Name, [Value]} when is_binary(Name), is_integer(Value), ?fits_int64(Value) -> 			
+			erlang:display("================================== serialize 64 bit integer"),
+			[list_to_binary([<<16#12>>, Name, <<0>>, <<?put_int64(Value)>>])];
+		{Name, [[Value]]} when is_binary(Name), is_tuple(Value) -> 			
+			erlang:display("================================== serialize object"),			
+			% trigger serialization of all the values
+			[Object] = serialize_doc_objects([Value]),
+			[list_to_binary([<<16#03>>, Name, <<0>>, <<?put_int32(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+		{Name, [Value]} when is_binary(Name), is_list(Value) -> 			
+			erlang:display("================================== serialize array"),
+			% Serialize the array
+			BinDoc = serialize_array(0, Value),			
+			% trigger serialization of all the values
+			[list_to_binary([<<16#04>>, Name, <<0>>, <<?put_int32(4 + byte_size(BinDoc) + 1)>>, BinDoc, <<0>>])];
 		_ -> 
-			erlang:display("================================== calculate_document_size done"),			
+			erlang:display("================================== serialize done"),			
 			serialize_doc_objects(Tail)
 	end;
 serialize_doc_objects([]) -> [].
+
+% Serialize an array of values using the code for all the other types
+serialize_array(Number, [Head|Tail]) ->
+	list_to_binary([serialize_doc_objects([{utf8(integer_to_list(Number)), [Head]}]), serialize_array(Number + 1, Tail)]);
+serialize_array(_, []) -> [].
 
 % Deserialize document
 deserialize(BinDoc) ->
