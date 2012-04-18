@@ -100,12 +100,6 @@ simple_document_with_regexp_test() ->
 	DocDict = dict:append(bson:utf8("regexp"), bson:regexp("test", "s"), dict:new()),
 	BinDocDict = bson:serialize(DocDict),
 	<<20,0,0,0,11,114,101,103,101,120,112,0,116,101,115,116,0,115,0,0>> = BinDocDict.
-	% erlang:display("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"),
-	% ?debugFmt("~p~n", [BinDoc]),
-	% erlang:display("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"),
-	% ?debugFmt("~p~n", [BinDocProp]),
-	% erlang:display("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"),
-	% ?debugFmt("~p~n", [BinDocDict]).
 
 simple_document_with_objectid_test() ->
 	% Generate ObjectId from hex string
@@ -196,7 +190,85 @@ simple_document_with_symbol_test() ->
 	DocDict = dict:append(bson:utf8("symbol"), atom, dict:new()),
 	BinDocDict = bson:serialize(DocDict),
 	<<22,0,0,0,14,115,121,109,98,111,108,0,5,0,0,0,97,116,111,109,0,0>> = BinDocDict.
+
+simple_document_with_minkey_test() ->
+	% Build a simple symbol key-value doc and serialize the doc
+	Doc = orddict:append(bson:utf8("key"), bson:minkey(), orddict:new()),
+	BinDoc = bson:serialize(Doc),
+	<<10,0,0,0,255,107,101,121,0,0>> = BinDoc,
+	% Build a simple symbol key-value proplist and serialize the doc
+	DocProp = [{bson:utf8("key"), bson:minkey()}],
+	BinDocProp = bson:serialize(DocProp),
+	<<10,0,0,0,255,107,101,121,0,0>> = BinDocProp,
+	% Build a simple symbol key-value dict and serialize the doc
+	DocDict = dict:append(bson:utf8("key"), bson:minkey(), dict:new()),
+	BinDocDict = bson:serialize(DocDict),
+	<<10,0,0,0,255,107,101,121,0,0>> = BinDocDict.
+
+simple_document_with_maxkey_test() ->
+	% Build a simple symbol key-value doc and serialize the doc
+	Doc = orddict:append(bson:utf8("key"), bson:maxkey(), orddict:new()),
+	BinDoc = bson:serialize(Doc),
+	<<10,0,0,0,127,107,101,121,0,0>> = BinDoc,
+	% Build a simple symbol key-value proplist and serialize the doc
+	DocProp = [{bson:utf8("key"), bson:maxkey()}],
+	BinDocProp = bson:serialize(DocProp),
+	<<10,0,0,0,127,107,101,121,0,0>> = BinDocProp,
+	% Build a simple symbol key-value dict and serialize the doc
+	DocDict = dict:append(bson:utf8("key"), bson:maxkey(), dict:new()),
+	BinDocDict = bson:serialize(DocDict),
+	<<10,0,0,0,127,107,101,121,0,0>> = BinDocDict.
+
+simple_document_with_javascript_test() ->
+	% Build a simple symbol key-value doc and serialize the doc
+	Doc = orddict:append(bson:utf8("code"), bson:javascript(bson:utf8("function(){}")), orddict:new()),
+	BinDoc = bson:serialize(Doc),
+	<<28,0,0,0,13,99,111,100,101,0,13,0,0,0,102,117,110,99,116,105,111,110,40,41,123,125,0,0>> = BinDoc,
+	% Build a simple symbol key-value proplist and serialize the doc
+	DocProp = [{bson:utf8("code"), bson:javascript(bson:utf8("function(){}"))}],
+	BinDocProp = bson:serialize(DocProp),
+	<<28,0,0,0,13,99,111,100,101,0,13,0,0,0,102,117,110,99,116,105,111,110,40,41,123,125,0,0>> = BinDocProp,
+	% Build a simple symbol key-value dict and serialize the doc
+	DocDict = dict:append(bson:utf8("code"), bson:javascript(bson:utf8("function(){}")), dict:new()),
+	BinDocDict = bson:serialize(DocDict),
+	<<28,0,0,0,13,99,111,100,101,0,13,0,0,0,102,117,110,99,116,105,111,110,40,41,123,125,0,0>> = BinDocDict.
+	% erlang:display("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"),
+	% ?debugFmt("~p~n", [BinDoc]).
+	% erlang:display("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"),
+	% ?debugFmt("~p~n", [BinDocProp]),
+	% erlang:display("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"),
+	% ?debugFmt("~p~n", [BinDocDict]).
+
+simple_document_with_javascript_code_test() ->
+	% Build a simple symbol key-value doc and serialize the doc
+	Doc = orddict:append(bson:utf8("code"), bson:javascript(bson:utf8("function(){}"), orddict:append(bson:utf8("v"), 1, orddict:new())), orddict:new()),
+	BinDoc = bson:serialize(Doc),
+	<<44,0,0,0,15,99,111,100,101,0,33,0,0,0,13,0,0,0,102,117,110,99,116,105,111,110,40,41,123,125,0,12,0,0,0,16,118,0,1,0,0,0,0,0>> = BinDoc,
+	% Build a simple symbol key-value proplist and serialize the doc
+	DocProp = [{bson:utf8("code"), bson:javascript(bson:utf8("function(){}"), [{bson:utf8("v"), 1}])}],
+	BinDocProp = bson:serialize(DocProp),
+	<<44,0,0,0,15,99,111,100,101,0,33,0,0,0,13,0,0,0,102,117,110,99,116,105,111,110,40,41,123,125,0,12,0,0,0,16,118,0,1,0,0,0,0,0>> = BinDocProp,
+	% Build a simple symbol key-value dict and serialize the doc
+	DocDict = dict:append(bson:utf8("code"), bson:javascript(bson:utf8("function(){}"), dict:append(bson:utf8("v"), 1, dict:new())), dict:new()),
+	BinDocDict = bson:serialize(DocDict),
+	<<44,0,0,0,15,99,111,100,101,0,33,0,0,0,13,0,0,0,102,117,110,99,116,105,111,110,40,41,123,125,0,12,0,0,0,16,118,0,1,0,0,0,0,0>> = BinDocDict.
 	
+simple_document_with_binary_test() ->
+	% Build a simple symbol key-value doc and serialize the doc
+	Doc = orddict:append(bson:utf8("bin"), bson:bin(list_to_binary("hello")), orddict:new()),
+	BinDoc = bson:serialize(Doc),
+	<<20,0,0,0,5,98,105,110,0,5,0,0,0,0,104,101,108,108,111,0>> = BinDoc,
+	Doc2 = orddict:append(bson:utf8("bin"), bson:bin(1, list_to_binary("hello")), orddict:new()),
+	BinDoc2 = bson:serialize(Doc2),
+	<<20,0,0,0,5,98,105,110,0,5,0,0,0,1,104,101,108,108,111,0>> = BinDoc2,
+	% Build a simple symbol key-value proplist and serialize the doc
+	DocProp = [{bson:utf8("bin"), bson:bin(list_to_binary("hello"))}],
+	BinDocProp = bson:serialize(DocProp),
+	<<20,0,0,0,5,98,105,110,0,5,0,0,0,0,104,101,108,108,111,0>> = BinDocProp,
+	% Build a simple symbol key-value dict and serialize the doc
+	DocDict = dict:append(bson:utf8("bin"), bson:bin(list_to_binary("hello")), dict:new()),
+	BinDocDict = bson:serialize(DocDict),
+	<<20,0,0,0,5,98,105,110,0,5,0,0,0,0,104,101,108,108,111,0>> = BinDocDict.
 
 
 

@@ -3,7 +3,7 @@
 
 % Exported functions for the bson parser
 -export ([serialize/1, deserialize/1]).
--export ([utf8/1, regexp/2, gen_objectid/1, objectid/1, objectid/3, timestamp_to_bson_time/1, bsom_time_to_timestamp/1]).
+-export ([utf8/1, bin/1, bin/2, minkey/0, maxkey/0, javascript/1, javascript/2, regexp/2, gen_objectid/1, objectid/1, objectid/3, timestamp_to_bson_time/1, bsom_time_to_timestamp/1]).
 
 % Exporting all availble types
 -export_type ([utf8/0]).
@@ -49,9 +49,27 @@ serialize_doc_objects([Head|Tail]) ->
 
 	% Match the case of the Head
 	case FinalHeadValue of				
+		{Name, {maxkey}} when is_binary(Name) ->
+			% erlang:display("================================== serialize maxkey"),
+			[list_to_binary([<<16#7f>>, Name, <<0>>])];
+		{Name, [{maxkey}]} when is_binary(Name) ->
+			% erlang:display("================================== serialize maxkey"),
+			[list_to_binary([<<16#7f>>, Name, <<0>>])];
+		{Name, {minkey}} when is_binary(Name) ->
+			% erlang:display("================================== serialize minkey"),
+			[list_to_binary([<<16#ff>>, Name, <<0>>])];
+		{Name, [{minkey}]} when is_binary(Name) ->
+			% erlang:display("================================== serialize minkey"),
+			[list_to_binary([<<16#ff>>, Name, <<0>>])];
 		{Name, {regexp, RegExp, Options}} when is_binary(Name) ->
 			% erlang:display("================================== serialize regexp"),
 			[list_to_binary([<<16#0B>>, Name, <<0>>, RegExp, <<0>>, Options, <<0>>])];
+		{Name, [{bin, SubType, Binary}]} when is_binary(Name), is_integer(SubType), is_binary(Binary) ->
+			% erlang:display("================================== serialize binary"),
+			[list_to_binary([<<16#05>>, Name, <<0>>, <<?put_int32(byte_size(Binary))>>, <<?put_int8(SubType)>>, Binary])];
+		{Name, {bin, SubType, Binary}} when is_binary(Name), is_integer(SubType), is_binary(Binary) ->
+			% erlang:display("================================== serialize binary"),
+			[list_to_binary([<<16#05>>, Name, <<0>>, <<?put_int32(byte_size(Binary))>>, <<?put_int8(SubType)>>, Binary])];
 		{Name, {objectid, ObjectId}} when is_binary(Name), is_binary(ObjectId) ->
 			% erlang:display("================================== serialize objectid"),
 			[list_to_binary([<<16#07>>, Name, <<0>>, ObjectId])];
@@ -61,6 +79,27 @@ serialize_doc_objects([Head|Tail]) ->
 		{Name, null} when is_binary(Name) ->
 			% erlang:display("================================== serialize null"),
 			[list_to_binary([<<16#0A>>, Name, <<0>>])];
+		{Name, {js, Code}} when is_binary(Name), is_binary(Code) ->
+			% erlang:display("================================== serialize code"),
+			[list_to_binary([<<16#0D>>, Name, <<0>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>])];
+		{Name, [{js, Code, Scope}]} when is_binary(Name), is_binary(Code), element(1, Scope) == dict ->
+			% erlang:display("================================== serialize code w scope"),
+			[Object] = serialize_doc_objects(dict:to_list(Scope)),
+			TotalLength = 4 + (byte_size(Code) + 1) + 4 + (4 + byte_size(Object) + 1),
+			[list_to_binary([<<16#0F>>, Name, <<0>>, <<?put_int32(TotalLength)>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>, <<?put_int32(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+		{Name, [{js, Code, Scope}]} when is_binary(Name), is_binary(Code) ->
+			% erlang:display("================================== serialize code w scope"),
+			[Object] = serialize_doc_objects(Scope),
+			TotalLength = 4 + (byte_size(Code) + 1) + 4 + (4 + byte_size(Object) + 1),
+			[list_to_binary([<<16#0F>>, Name, <<0>>, <<?put_int32(TotalLength)>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>, <<?put_int32(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+		{Name, {js, Code, Scope}} when is_binary(Name), is_binary(Code) ->
+			% erlang:display("================================== serialize code w scope"),
+			[Object] = serialize_doc_objects(Scope),
+			TotalLength = 4 + (byte_size(Code) + 1) + 4 + (4 + byte_size(Object) + 1),
+			[list_to_binary([<<16#0F>>, Name, <<0>>, <<?put_int32(TotalLength)>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>, <<?put_int32(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+		{Name, [{js, Code}]} when is_binary(Name), is_binary(Code) ->
+			% erlang:display("================================== serialize code"),
+			[list_to_binary([<<16#0D>>, Name, <<0>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>])];
 		{Name, {MegaSecs, Seconds, Micro}} ->
 			% erlang:display("================================== serialize date"),
 			[list_to_binary([<<16#09>>, Name, <<0>>, <<?put_int64(timestamp_to_bson_time({MegaSecs, Seconds, Micro}))>>])];
@@ -215,6 +254,45 @@ utf8 (CharData) -> case unicode:characters_to_binary (CharData) of
 -spec regexp (unicode:chardata(), unicode:chardata()) -> regexp().
 %@doc Convert regular expression to regexp object
 regexp (CharData, OptionData) -> {regexp, utf8(CharData), utf8(OptionData)}.
+
+% Maxkey expression type
+-type maxkey() :: {maxkey}.
+% Create Regular expression function
+-spec maxkey () -> maxkey().
+%@doc Convert maxkey to maxkey expression
+maxkey () -> {maxkey}.
+
+% Minkey expression type
+-type minkey() :: {minkey}.
+% Create Regular expression function
+-spec minkey () -> minkey().
+%@doc Convert maxkey to maxkey expression
+minkey () -> {minkey}.
+
+% Binary expression type
+-type bin() :: {bin, integer(), binary()}.
+% Create Binary function with subtype
+-spec bin (integer(), binary()) -> bin().
+%@doc Create Binary type with user decided subtype
+bin (SubType, Binary) -> {bin, SubType, Binary}.
+% Create Binary function with default subtype
+-spec bin(binary()) -> bin().
+%@doc Create Binary type with default subtype
+bin (Binary) -> {bin, 0, Binary}.
+
+% Javascript expression type
+-type javascript() :: {js, utf8()}.
+% Create Regular expression function
+-spec javascript (unicode:chardata()) -> javascript().
+%@doc Convert maxkey to maxkey expression
+javascript (Code) -> {js, Code}.
+
+% Javascript expression type
+-type javascript_w_scope() :: {js, utf8(), _}.
+% Create Regular expression function
+-spec javascript (unicode:chardata(), _) -> javascript_w_scope().
+%@doc Convert maxkey to maxkey expression
+javascript (Code, Scope) -> {js, Code, Scope}.
 
 % ObjectId type
 -type objectid() :: {objectid, <<_:96>>}.
