@@ -2,7 +2,7 @@
 -module(bson).
 
 % Exported functions for the bson parser
--export ([serialize/1, deserialize/1]).
+-export ([serialize/1, deserialize/1, deserialize/2]).
 -export ([utf8/1, bin/1, bin/2, minkey/0, maxkey/0, javascript/1, javascript/2, regexp/2, gen_objectid/1, objectid/1, objectid/3, timestamp_to_bson_time/1, bsom_time_to_timestamp/1]).
 
 % Exporting all availble types
@@ -24,16 +24,15 @@ serialize_doc(Doc) ->
 			% Create final binary
 			Bin = list_to_binary(serialize_doc_objects(dict:to_list(Doc))),
 			% Add document header
-			list_to_binary([<<?put_int32(byte_size(Bin) + 4 + 1)>>, Bin, <<0>>]);
+			list_to_binary([<<?put_int32u(byte_size(Bin) + 4 + 1)>>, Bin, <<0>>]);
 		_ ->
 			% Create final binary
 			Bin = list_to_binary(serialize_doc_objects(Doc)),
 			% Add document header
-			list_to_binary([<<?put_int32(byte_size(Bin) + 4 + 1)>>, Bin, <<0>>])
+			list_to_binary([<<?put_int32u(byte_size(Bin) + 4 + 1)>>, Bin, <<0>>])
 	end.
 
-serialize_doc_objects([Head|Tail]) ->	
-	
+serialize_doc_objects([Head|Tail]) ->		
 	% Handle the situation where the value is a dict
 	FinalHeadValue = case Head of
 		{HeadName, [HeadValue]} when is_tuple(HeadValue), element(1, HeadValue) == dict ->
@@ -48,7 +47,7 @@ serialize_doc_objects([Head|Tail]) ->
 	% erlang:display(FinalHeadValue),
 
 	% Match the case of the Head
-	case FinalHeadValue of				
+	BinaryList = case FinalHeadValue of				
 		{Name, {maxkey}} when is_binary(Name) ->
 			% erlang:display("================================== serialize maxkey"),
 			[list_to_binary([<<16#7f>>, Name, <<0>>])];
@@ -66,10 +65,10 @@ serialize_doc_objects([Head|Tail]) ->
 			[list_to_binary([<<16#0B>>, Name, <<0>>, RegExp, <<0>>, Options, <<0>>])];
 		{Name, [{bin, SubType, Binary}]} when is_binary(Name), is_integer(SubType), is_binary(Binary) ->
 			% erlang:display("================================== serialize binary"),
-			[list_to_binary([<<16#05>>, Name, <<0>>, <<?put_int32(byte_size(Binary))>>, <<?put_int8(SubType)>>, Binary])];
+			[list_to_binary([<<16#05>>, Name, <<0>>, <<?put_int32u(byte_size(Binary))>>, <<?put_int8(SubType)>>, Binary])];
 		{Name, {bin, SubType, Binary}} when is_binary(Name), is_integer(SubType), is_binary(Binary) ->
 			% erlang:display("================================== serialize binary"),
-			[list_to_binary([<<16#05>>, Name, <<0>>, <<?put_int32(byte_size(Binary))>>, <<?put_int8(SubType)>>, Binary])];
+			[list_to_binary([<<16#05>>, Name, <<0>>, <<?put_int32u(byte_size(Binary))>>, <<?put_int8(SubType)>>, Binary])];
 		{Name, {objectid, ObjectId}} when is_binary(Name), is_binary(ObjectId) ->
 			% erlang:display("================================== serialize objectid"),
 			[list_to_binary([<<16#07>>, Name, <<0>>, ObjectId])];
@@ -81,25 +80,25 @@ serialize_doc_objects([Head|Tail]) ->
 			[list_to_binary([<<16#0A>>, Name, <<0>>])];
 		{Name, {js, Code}} when is_binary(Name), is_binary(Code) ->
 			% erlang:display("================================== serialize code"),
-			[list_to_binary([<<16#0D>>, Name, <<0>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>])];
+			[list_to_binary([<<16#0D>>, Name, <<0>>, <<?put_int32u(byte_size(Code) + 1)>>, Code, <<0>>])];
 		{Name, [{js, Code, Scope}]} when is_binary(Name), is_binary(Code), element(1, Scope) == dict ->
 			% erlang:display("================================== serialize code w scope"),
 			[Object] = serialize_doc_objects(dict:to_list(Scope)),
 			TotalLength = 4 + (byte_size(Code) + 1) + 4 + (4 + byte_size(Object) + 1),
-			[list_to_binary([<<16#0F>>, Name, <<0>>, <<?put_int32(TotalLength)>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>, <<?put_int32(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+			[list_to_binary([<<16#0F>>, Name, <<0>>, <<?put_int32u(TotalLength)>>, <<?put_int32u(byte_size(Code) + 1)>>, Code, <<0>>, <<?put_int32u(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
 		{Name, [{js, Code, Scope}]} when is_binary(Name), is_binary(Code) ->
 			% erlang:display("================================== serialize code w scope"),
 			[Object] = serialize_doc_objects(Scope),
 			TotalLength = 4 + (byte_size(Code) + 1) + 4 + (4 + byte_size(Object) + 1),
-			[list_to_binary([<<16#0F>>, Name, <<0>>, <<?put_int32(TotalLength)>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>, <<?put_int32(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+			[list_to_binary([<<16#0F>>, Name, <<0>>, <<?put_int32u(TotalLength)>>, <<?put_int32u(byte_size(Code) + 1)>>, Code, <<0>>, <<?put_int32u(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
 		{Name, {js, Code, Scope}} when is_binary(Name), is_binary(Code) ->
 			% erlang:display("================================== serialize code w scope"),
 			[Object] = serialize_doc_objects(Scope),
 			TotalLength = 4 + (byte_size(Code) + 1) + 4 + (4 + byte_size(Object) + 1),
-			[list_to_binary([<<16#0F>>, Name, <<0>>, <<?put_int32(TotalLength)>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>, <<?put_int32(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+			[list_to_binary([<<16#0F>>, Name, <<0>>, <<?put_int32u(TotalLength)>>, <<?put_int32u(byte_size(Code) + 1)>>, Code, <<0>>, <<?put_int32u(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
 		{Name, [{js, Code}]} when is_binary(Name), is_binary(Code) ->
 			% erlang:display("================================== serialize code"),
-			[list_to_binary([<<16#0D>>, Name, <<0>>, <<?put_int32(byte_size(Code) + 1)>>, Code, <<0>>])];
+			[list_to_binary([<<16#0D>>, Name, <<0>>, <<?put_int32u(byte_size(Code) + 1)>>, Code, <<0>>])];
 		{Name, {MegaSecs, Seconds, Micro}} ->
 			% erlang:display("================================== serialize date"),
 			[list_to_binary([<<16#09>>, Name, <<0>>, <<?put_int64(timestamp_to_bson_time({MegaSecs, Seconds, Micro}))>>])];
@@ -114,20 +113,20 @@ serialize_doc_objects([Head|Tail]) ->
 		{Name, Value} when is_binary(Name), is_atom(Value) ->
 			% erlang:display("================================== serialize symbol"),			
 			ValueBin = atom_to_binary(Value, utf8),			
-			[list_to_binary([<<16#0E>>, Name, <<0>>, <<?put_int32(byte_size(ValueBin) + 1)>>, ValueBin, <<0>>])];
+			[list_to_binary([<<16#0E>>, Name, <<0>>, <<?put_int32u(byte_size(ValueBin) + 1)>>, ValueBin, <<0>>])];
 		{Name, [[Value]]} when is_binary(Name), is_tuple(Value) -> 			
 			% erlang:display("================================== serialize object"),			
 			% trigger serialization of all the values
 			[Object] = serialize_doc_objects([Value]),
-			[list_to_binary([<<16#03>>, Name, <<0>>, <<?put_int32(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+			[list_to_binary([<<16#03>>, Name, <<0>>, <<?put_int32u(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
 		{Name, [Value]} when is_binary(Name), is_list(Value) -> 			
 			% erlang:display("================================== serialize array"),
 			% Serialize the array
 			BinDoc = serialize_array(0, Value),			
 			% trigger serialization of all the values
-			[list_to_binary([<<16#04>>, Name, <<0>>, <<?put_int32(4 + byte_size(BinDoc) + 1)>>, BinDoc, <<0>>])];
+			[list_to_binary([<<16#04>>, Name, <<0>>, <<?put_int32u(4 + byte_size(BinDoc) + 1)>>, BinDoc, <<0>>])];
 		{Name, Value} when is_binary(Name), is_binary(Value) ->
-			[list_to_binary([<<16#02>>, Name, <<0>>, <<?put_int32(byte_size(Value) + 1)>>, Value, <<0>>])];			
+			[list_to_binary([<<16#02>>, Name, <<0>>, <<?put_int32u(byte_size(Value) + 1)>>, Value, <<0>>])];			
 		{Name, Value} when is_binary(Name), is_float(Value) -> 			
 			% erlang:display("================================== serialize float"),
 			[list_to_binary([<<16#01>>, Name, <<0>>, <<?put_float(Value)>>])];
@@ -141,7 +140,7 @@ serialize_doc_objects([Head|Tail]) ->
 			% erlang:display("================================== serialize object"),			
 			% trigger serialization of all the values
 			[Object] = serialize_doc_objects([Value]),
-			[list_to_binary([<<16#03>>, Name, <<0>>, <<?put_int32(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+			[list_to_binary([<<16#03>>, Name, <<0>>, <<?put_int32u(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
 		{Name, [{regexp, RegExp, Options}]} when is_binary(Name) ->
 			% erlang:display("================================== serialize regexp"),
 			[list_to_binary([<<16#0B>>, Name, <<0>>, RegExp, <<0>>, Options, <<0>>])];
@@ -159,7 +158,7 @@ serialize_doc_objects([Head|Tail]) ->
 			[list_to_binary([<<16#07>>, Name, <<0>>, ObjectId])];
 		{Name, [Value]} when is_binary(Name), is_binary(Value) -> 			
 			% erlang:display("================================== serialize string"),
-			[list_to_binary([<<16#02>>, Name, <<0>>, <<?put_int32(byte_size(Value) + 1)>>, Value, <<0>>])];
+			[list_to_binary([<<16#02>>, Name, <<0>>, <<?put_int32u(byte_size(Value) + 1)>>, Value, <<0>>])];
 		{Name, [Value]} when is_binary(Name), is_boolean(Value) -> 			
 			% erlang:display("================================== serialize boolean"),
 			case Value of
@@ -171,7 +170,7 @@ serialize_doc_objects([Head|Tail]) ->
 		{Name, [Value]} when is_binary(Name), is_atom(Value) ->
 			% erlang:display("================================== serialize symbol"),			
 			ValueBin = atom_to_binary(Value, utf8),			
-			[list_to_binary([<<16#0E>>, Name, <<0>>, <<?put_int32(byte_size(ValueBin) + 1)>>, ValueBin, <<0>>])];
+			[list_to_binary([<<16#0E>>, Name, <<0>>, <<?put_int32u(byte_size(ValueBin) + 1)>>, ValueBin, <<0>>])];
 		{Name, [Value]} when is_binary(Name), is_float(Value) -> 			
 			% erlang:display("================================== serialize float"),
 			[list_to_binary([<<16#01>>, Name, <<0>>, <<?put_float(Value)>>])];
@@ -187,11 +186,16 @@ serialize_doc_objects([Head|Tail]) ->
 			% Serialize the array
 			BinDoc = serialize_array(0, ArrayValue),
 			% trigger serialization of all the values
-			[list_to_binary([<<16#04>>, Name, <<0>>, <<?put_int32(4 + byte_size(BinDoc) + 1)>>, BinDoc, <<0>>])];
+			[list_to_binary([<<16#04>>, Name, <<0>>, <<?put_int32u(4 + byte_size(BinDoc) + 1)>>, BinDoc, <<0>>])];
 		_ -> 
 			% erlang:display("================================== serialize done"),			
 			serialize_doc_objects(Tail)
-	end;
+	end,	
+	erlang:display("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"),
+	erlang:display(Tail),
+	
+	% Process next document
+	BinaryList ++ serialize_doc_objects(Tail);
 serialize_doc_objects([]) -> [].
 
 % Serialize an array of values using the code for all the other types
@@ -200,8 +204,113 @@ serialize_array(Number, [Head|Tail]) ->
 serialize_array(_, []) -> [].
 
 % Deserialize document
-deserialize(_BinDoc) ->
-	[].
+deserialize(BinDoc) ->
+	deserialize(BinDoc, pl).
+
+deserialize(BinDoc, Type) ->
+	% Grab the size of the doc
+	<<NumberOfBytes:32/unsigned-little,Rest/binary>> = BinDoc,
+	% Build the end Object type based on the provided type
+	FinalObject = case Type of
+			pl ->
+				[]
+		end,
+	
+	% Ensure the correct size
+	if
+		NumberOfBytes /= byte_size(BinDoc) ->
+			% Illegal sized doc return error
+			{err, illegalDocumentSize};
+		true ->
+			% Legaly sized document start parsing
+			deserialize_elements_pl(Rest, FinalObject, Type)
+	end.	
+
+% Deserialize all the elements
+deserialize_elements_pl(Rest, Object, ResultType) ->
+	% Unpack the type of object parameter
+	<<Type:8/unsigned-little, DocRest/binary>> = Rest,	
+	% Switch on type
+	CurrentObject = case Type of
+		16#2 ->
+			% erlang:display("============================== String"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Unpack the size of the string
+			<<0, Size:32/unsigned-little, Rest2/binary>> = Rest1,
+			% Remove 0 padding from cstring
+			SSize = Size - 1,
+			% Unpack the actual string
+			<<String:SSize/binary, 0, FinalRest/binary>> = Rest2,
+			% Create result depending on type
+			pack_object(ResultType, Object, utf8(Name), utf8(String));
+		16#1 ->
+			% erlang:display("============================== Float"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Read the float string
+			<<0, Float:64/float-little, FinalRest/binary>> = Rest1,
+			% Create result depending on type
+			pack_object(ResultType, Object, utf8(Name), Float);
+		16#10 ->
+			% erlang:display("============================== 32 bit Integer"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Read the float string
+			<<0, Integer:32/signed-little, FinalRest/binary>> = Rest1,
+			% Create result depending on type
+			pack_object(ResultType, Object, utf8(Name), Integer);
+		16#12 ->
+			% erlang:display("============================== 64 bit Integer"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Read the float string
+			<<0, Integer:64/signed-little, FinalRest/binary>> = Rest1,
+			% Create result depending on type
+			pack_object(ResultType, Object, utf8(Name), Integer);
+		16#03 ->
+			% erlang:display("============================== Document"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Read the document size
+			<<0, Size:32/unsigned-little, _/binary>> = Rest1,
+			% Unpack the actual doc
+			<<0, DocBin:Size/binary, FinalRest/binary>> = Rest1,
+			% Unpack the document
+			Doc = deserialize(DocBin, ResultType),
+			% Pack up the result
+			pack_object(ResultType, Object, utf8(Name), Doc);
+		_ ->
+			FinalRest = <<>>,
+			[]
+	end,
+
+	% Keep parsing if we have more data left, we check against > 1 as the last byte is padding for the doc
+	if
+		byte_size(FinalRest) > 1 ->
+			% Keep processing
+			deserialize_elements_pl(FinalRest, CurrentObject, ResultType);
+		true ->
+			CurrentObject
+	end.
+
+pack_object(Type, Object, Key, Value) ->
+	case Type of
+		pl ->
+			lists:merge([{Key, Value}], Object);
+		_ ->
+			[]
+	end.
 
 %
 % Utility methods
