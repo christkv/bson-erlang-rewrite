@@ -4,6 +4,7 @@
 % Exported functions for the bson parser
 -export ([serialize/1, deserialize/1, deserialize/2]).
 -export ([utf8/1, bin/1, bin/2, minkey/0, maxkey/0, javascript/1, javascript/2, regexp/2, gen_objectid/1, objectid/1, objectid/3, timestamp_to_bson_time/1, bsom_time_to_timestamp/1]).
+-export ([hexstr_to_bin/1]).
 
 % Exporting all availble types
 -export_type ([utf8/0]).
@@ -191,8 +192,8 @@ serialize_doc_objects([Head|Tail]) ->
 			% erlang:display("================================== serialize done"),			
 			serialize_doc_objects(Tail)
 	end,	
-	erlang:display("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"),
-	erlang:display(Tail),
+	% erlang:display("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"),
+	% erlang:display(Tail),
 	
 	% Process next document
 	BinaryList ++ serialize_doc_objects(Tail);
@@ -208,6 +209,9 @@ deserialize(BinDoc) ->
 	deserialize(BinDoc, pl).
 
 deserialize(BinDoc, Type) ->
+	deserialize_doc(BinDoc, Type, doc).
+	
+deserialize_doc(BinDoc, Type, DocType) ->
 	% Grab the size of the doc
 	<<NumberOfBytes:32/unsigned-little,Rest/binary>> = BinDoc,
 	% Build the end Object type based on the provided type
@@ -223,11 +227,11 @@ deserialize(BinDoc, Type) ->
 			{err, illegalDocumentSize};
 		true ->
 			% Legaly sized document start parsing
-			deserialize_elements_pl(Rest, FinalObject, Type)
-	end.	
+			deserialize_elements_pl(Rest, FinalObject, Type, DocType)
+	end.		
 
 % Deserialize all the elements
-deserialize_elements_pl(Rest, Object, ResultType) ->
+deserialize_elements_pl(Rest, Object, ResultType, DocType) ->
 	% Unpack the type of object parameter
 	<<Type:8/unsigned-little, DocRest/binary>> = Rest,	
 	% Switch on type
@@ -245,7 +249,21 @@ deserialize_elements_pl(Rest, Object, ResultType) ->
 			% Unpack the actual string
 			<<String:SSize/binary, 0, FinalRest/binary>> = Rest2,
 			% Create result depending on type
-			pack_object(ResultType, Object, utf8(Name), utf8(String));
+			pack_object(ResultType, Object, utf8(Name), utf8(String), DocType);
+		16#E ->
+			% erlang:display("============================== Symbol"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Unpack the size of the string
+			<<0, Size:32/unsigned-little, Rest2/binary>> = Rest1,
+			% Remove 0 padding from cstring
+			SSize = Size - 1,
+			% Unpack the actual string
+			<<String:SSize/binary, 0, FinalRest/binary>> = Rest2,
+			% Create result depending on type
+			pack_object(ResultType, Object, utf8(Name), binary_to_atom(String, utf8), DocType);
 		16#1 ->
 			% erlang:display("============================== Float"),
 			% Locate the position of the cstring
@@ -255,7 +273,7 @@ deserialize_elements_pl(Rest, Object, ResultType) ->
 			% Read the float string
 			<<0, Float:64/float-little, FinalRest/binary>> = Rest1,
 			% Create result depending on type
-			pack_object(ResultType, Object, utf8(Name), Float);
+			pack_object(ResultType, Object, utf8(Name), Float, DocType);
 		16#10 ->
 			% erlang:display("============================== 32 bit Integer"),
 			% Locate the position of the cstring
@@ -265,7 +283,7 @@ deserialize_elements_pl(Rest, Object, ResultType) ->
 			% Read the float string
 			<<0, Integer:32/signed-little, FinalRest/binary>> = Rest1,
 			% Create result depending on type
-			pack_object(ResultType, Object, utf8(Name), Integer);
+			pack_object(ResultType, Object, utf8(Name), Integer, DocType);
 		16#12 ->
 			% erlang:display("============================== 64 bit Integer"),
 			% Locate the position of the cstring
@@ -275,7 +293,7 @@ deserialize_elements_pl(Rest, Object, ResultType) ->
 			% Read the float string
 			<<0, Integer:64/signed-little, FinalRest/binary>> = Rest1,
 			% Create result depending on type
-			pack_object(ResultType, Object, utf8(Name), Integer);
+			pack_object(ResultType, Object, utf8(Name), Integer, DocType);
 		16#03 ->
 			% erlang:display("============================== Document"),
 			% Locate the position of the cstring
@@ -287,9 +305,144 @@ deserialize_elements_pl(Rest, Object, ResultType) ->
 			% Unpack the actual doc
 			<<0, DocBin:Size/binary, FinalRest/binary>> = Rest1,
 			% Unpack the document
-			Doc = deserialize(DocBin, ResultType),
+			Doc = deserialize_doc(DocBin, ResultType, doc),
 			% Pack up the result
-			pack_object(ResultType, Object, utf8(Name), Doc);
+			pack_object(ResultType, Object, utf8(Name), Doc, DocType);
+		16#04 ->
+			% erlang:display("============================== Array"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Read the document size
+			<<0, Size:32/unsigned-little, _/binary>> = Rest1,
+			% Unpack the actual doc
+			<<0, DocBin:Size/binary, FinalRest/binary>> = Rest1,
+			% Unpack the document
+			Doc = deserialize_doc(DocBin, ResultType, array),
+			% Pack up the result
+			pack_object(ResultType, Object, utf8(Name), Doc, DocType);
+		16#07 ->
+			% erlang:display("============================== ObjectId"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Read the document size
+			<<0, ObjectId:12/binary, FinalRest/binary>> = Rest1,			
+			% Pack up the result
+			pack_object(ResultType, Object, utf8(Name), {objectid, ObjectId}, DocType);
+		16#08 ->
+			% erlang:display("============================== Boolean"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Read the document size
+			<<0, Boolean:1/binary, FinalRest/binary>> = Rest1,			
+			% Set up the value
+			if 
+				Boolean == <<1>> ->
+					BooleanValue = true;
+				true ->
+					BooleanValue = false
+			end,			
+			% Pack up the result
+			pack_object(ResultType, Object, utf8(Name), BooleanValue, DocType);
+		16#0A ->
+			% erlang:display("============================== Null"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, 0, FinalRest/binary>> = DocRest,
+			% Pack up the result
+			pack_object(ResultType, Object, utf8(Name), null, DocType);
+		16#09 ->
+			% erlang:display("============================== Datetime"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, 0, Rest1/binary>> = DocRest,
+			% Read the datetime 64bit value
+			<<IntegerDateTime:64/unsigned-little, FinalRest/binary>> = Rest1,
+			% Pack up the result
+			pack_object(ResultType, Object, utf8(Name), bsom_time_to_timestamp(IntegerDateTime), DocType);
+		16#0B ->
+			% erlang:display("============================== Regexp"),
+			% Locate the position of the cstring
+			{Pos, _} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, 0, Rest1/binary>> = DocRest,
+			% Locate the Regular expression text
+			{RPos, _} = binary:match (Rest1, <<0>>),
+			% Grab the Regular expression CString name
+			<<RegExp:RPos/binary, 0, Rest2/binary>> = Rest1,
+			% Locate the Regular switches
+			{RSPos, _} = binary:match (Rest2, <<0>>),
+			% Grab the Regular expression CString options
+			<<RegExpOptions:RSPos/binary, 0, FinalRest/binary>> = Rest2,
+			pack_object(ResultType, Object, utf8(Name), {regexp, utf8(RegExp), utf8(RegExpOptions)}, DocType);
+		16#D ->
+			% erlang:display("============================== Javascript"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Unpack the size of the string
+			<<0, Size:32/unsigned-little, Rest2/binary>> = Rest1,
+			% Remove 0 padding from cstring
+			SSize = Size - 1,
+			% Unpack the actual string
+			<<Javascript:SSize/binary, 0, FinalRest/binary>> = Rest2,
+			% Create result depending on type
+			pack_object(ResultType, Object, utf8(Name), javascript(utf8(Javascript)), DocType);
+		16#5 ->
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Unpack the size of the binary
+			<<0, BinarySize:32/unsigned-little, SubType:8/unsigned-little, Rest2/binary>> = Rest1,
+			% Read the actual binary data
+			<<BinaryData:BinarySize/binary, FinalRest>> = Rest2,			
+			% Create result depending on type
+			pack_object(ResultType, Object, utf8(Name), bin(SubType, BinaryData), DocType);
+		16#F ->
+			% erlang:display("============================== Javascript with Scope"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, Rest1/binary>> = DocRest,
+			% Unpack the size of the document with 
+			<<0, Size:32/unsigned-little, _/binary>> = Rest1,
+			% Grab the actual doc
+			<<0, JsDoc:Size/binary, FinalRest/binary>> = Rest1,
+			% Let's pull apart the JsDoc
+			<<_:32, JSSize:32/unsigned-little, Rest3/binary>> = JsDoc,
+			% Remove trailing CString 0
+			JSSizeFinal = JSSize - 1,
+			% Let's grab the javascript
+			<<Javascript:JSSizeFinal/binary, 0, ScopeDocBin/binary>> = Rest3, 
+			% Grab the scope bson document
+			ScopeDoc = deserialize_doc(ScopeDocBin, ResultType, doc),
+			% Create result depending on type
+			pack_object(ResultType, Object, utf8(Name), javascript(utf8(Javascript), ScopeDoc), DocType);
+		16#FF ->
+			% erlang:display("============================== MinKey"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, 0, FinalRest/binary>> = DocRest,
+			% Pack up the result
+			pack_object(ResultType, Object, utf8(Name), minkey(), DocType);
+		16#7F ->
+			% erlang:display("============================== MaxKey"),
+			% Locate the position of the cstring
+			{Pos, _Len} = binary:match (DocRest, <<0>>),
+			% Grab the CString name
+			<<Name:Pos/binary, 0, FinalRest/binary>> = DocRest,
+			% Pack up the result
+			pack_object(ResultType, Object, utf8(Name), maxkey(), DocType);
 		_ ->
 			FinalRest = <<>>,
 			[]
@@ -299,15 +452,20 @@ deserialize_elements_pl(Rest, Object, ResultType) ->
 	if
 		byte_size(FinalRest) > 1 ->
 			% Keep processing
-			deserialize_elements_pl(FinalRest, CurrentObject, ResultType);
+			deserialize_elements_pl(FinalRest, CurrentObject, ResultType, DocType);
 		true ->
 			CurrentObject
 	end.
 
-pack_object(Type, Object, Key, Value) ->
+pack_object(Type, Object, Key, Value, DocType) ->
 	case Type of
 		pl ->
-			lists:merge([{Key, Value}], Object);
+			case DocType of
+				array ->
+					lists:merge([Value], Object);
+				_ ->				
+					lists:merge([{Key, Value}], Object)
+			end;
 		_ ->
 			[]
 	end.
