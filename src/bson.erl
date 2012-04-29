@@ -2,7 +2,7 @@
 -module(bson).
 
 % Exported functions for the bson parser
--export ([serialize/1, deserialize/1, deserialize/2]).
+-export ([serialize/1, deserialize/1, deserialize/2, deserialize/3]).
 -export ([utf8/1, bin/1, bin/2, minkey/0, maxkey/0, javascript/1, javascript/2, regexp/2, gen_objectid/1, objectid/1, objectid/3, timestamp_to_bson_time/1, bsom_time_to_timestamp/1]).
 -export ([hexstr_to_bin/1]).
 
@@ -205,15 +205,50 @@ serialize_array(Number, [Head|Tail]) ->
 serialize_array(_, []) -> [].
 
 % Deserialize document
-deserialize(BinDoc) ->
+deserialize(BinDoc) when is_binary(BinDoc) ->
 	deserialize(BinDoc, pl).
 
-deserialize(BinDoc, Type) ->
+deserialize(BinDoc, Type) when is_binary(BinDoc) and is_atom(Type) ->
 	deserialize_doc(BinDoc, Type, doc).
+
+deserialize(BinDoc, KeyToScanFor, Type) when is_binary(BinDoc), is_binary(KeyToScanFor), is_atom(Type) ->
+	% Binary length
+	Length = byte_size(BinDoc),
+	% Split the binary info search key parts
+	Keys = binary:split(KeyToScanFor, <<".">>, [global]),
+	% Search for the object and return it deserialized
+	FoundIndex = search_for_object(Keys, BinDoc, 0, Length, Type),
+	% Build the end Object type based on the provided type
+	FinalObject = case Type of
+			pl ->
+				[];
+			dict ->
+				dict:new();
+			orddict ->
+				orddict:new()
+		end,
+	% Verify that we found an index
+	case is_number(FoundIndex) of
+		true ->
+			% Actual start of the element
+			ActualIndex = FoundIndex - 1,
+			% Cut out from this point
+			deserialize_elements_pl(binary:part(BinDoc, ActualIndex, Length - ActualIndex), FinalObject, Type, doc, single);
+		_ -> {err, nomatch}
+	end.
+
+search_for_object([Head|Tail], BinDoc, Index, Length, Type) ->
+	% erlang:display(binary_to_list(Head)),
+	Match = binary:match(BinDoc, Head, [{scope, {Index, Length - Index}}]),
+	% Ensure we error on no match found
+	case Match of
+		nomatch -> {err, nomatch};
+		{NewIndex, NewLength} -> 
+			search_for_object(Tail, BinDoc, NewIndex, Length - NewIndex, Type)
+	end;
+search_for_object([], _, FoundIndex, _, _) -> FoundIndex.
 	
-deserialize_doc(BinDoc, Type, DocType) ->
-	% erlang:display("============================================== deserialize_doc"),
-	% erlang:display(Type),
+deserialize_doc(BinDoc, Type, DocType) when is_binary(BinDoc), is_atom(Type), is_atom(DocType) ->
 	% Grab the size of the doc
 	<<NumberOfBytes:32/unsigned-little,Rest/binary>> = BinDoc,
 	% Build the end Object type based on the provided type
@@ -233,13 +268,17 @@ deserialize_doc(BinDoc, Type, DocType) ->
 			{err, illegalDocumentSize};
 		true ->
 			% Legaly sized document start parsing
-			deserialize_elements_pl(Rest, FinalObject, Type, DocType)
+			deserialize_elements_pl(Rest, FinalObject, Type, DocType, multi)
 	end.		
 
 % Deserialize all the elements
-deserialize_elements_pl(Rest, Object, ResultType, DocType) ->
+deserialize_elements_pl(Rest, Object, ResultType, DocType, Single) ->
 	% Unpack the type of object parameter
 	<<Type:8/unsigned-little, DocRest/binary>> = Rest,	
+	
+	% erlang:display("deserialize_elements_pl=============================="),
+	% erlang:display(Type),	
+	
 	% Switch on type
 	CurrentObject = case Type of
 		16#2 ->
@@ -456,9 +495,9 @@ deserialize_elements_pl(Rest, Object, ResultType, DocType) ->
 
 	% Keep parsing if we have more data left, we check against > 1 as the last byte is padding for the doc
 	if
-		byte_size(FinalRest) > 1 ->
+		(byte_size(FinalRest) > 1) and (Single == multi) ->
 			% Keep processing
-			deserialize_elements_pl(FinalRest, CurrentObject, ResultType, DocType);
+			deserialize_elements_pl(FinalRest, CurrentObject, ResultType, DocType, Single);
 		true ->
 			CurrentObject
 	end.
