@@ -274,11 +274,17 @@ simple_document_with_binary_test() ->
 
 deserialize_simple_string_key_value_test() ->
 	Bin = <<21,0,0,0,2,110,97,109,101,0,6,0,0,0,118,97,108,117,101,0,0>>,
-	% Unpack the binary
+	% Unpack the binary as propertylist
 	[{Key, Value}] = bson:deserialize(Bin, pl),
 	% Verify the correctness of the values
 	"name" = binary_to_list(Key),
-	"value" = binary_to_list(Value).
+	"value" = binary_to_list(Value),
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	"value" = binary_to_list(dict:fetch(bson:utf8("name"), Dict)),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	"value" = binary_to_list(orddict:fetch(bson:utf8("name"), OrdDict)).
 
 deserialize_simple_two_attribute_object_test() ->
 	Bin = <<19,0,0,0,16,97,0,1,0,0,0,16,98,0,2,0,0,0,0>>,
@@ -287,7 +293,15 @@ deserialize_simple_two_attribute_object_test() ->
 	"a" = binary_to_list(Key1),
 	1 = Value1,
 	"b" = binary_to_list(Key2),
-	2 = Value2.
+	2 = Value2,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	1 = dict:fetch(bson:utf8("a"), Dict),
+	2 = dict:fetch(bson:utf8("b"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	1 = orddict:fetch(bson:utf8("a"), OrdDict),
+	2 = orddict:fetch(bson:utf8("b"), OrdDict).
 
 deserialize_simple_float_key_value_test() ->
 	Bin = <<19,0,0,0,1,110,97,109,101,0,113,61,10,215,163,112,245,63,0>>,
@@ -295,7 +309,13 @@ deserialize_simple_float_key_value_test() ->
 	[{Key, Value}] = bson:deserialize(Bin, pl),
 	% Verify the correctness of the values
 	"name" = binary_to_list(Key),
-	1.34 = Value.
+	1.34 = Value,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	1.34 = dict:fetch(bson:utf8("name"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	1.34 = orddict:fetch(bson:utf8("name"), OrdDict).
 
 deserialize_simple_32_bit_integer_key_value_test() ->
 	Bin = <<15,0,0,0,16,110,97,109,101,0,232,3,0,0,0>>,
@@ -303,7 +323,13 @@ deserialize_simple_32_bit_integer_key_value_test() ->
 	[{Key, Value}] = bson:deserialize(Bin, pl),
 	% Verify the correctness of the values
 	"name" = binary_to_list(Key),
-	1000 = Value.
+	1000 = Value,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	1000 = dict:fetch(bson:utf8("name"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	1000 = orddict:fetch(bson:utf8("name"), OrdDict).
 
 deserialize_simple_64_bit_integer_key_value_test() ->
 	Bin = <<19,0,0,0,18,110,97,109,101,0,0,0,0,0,0,0,0,112,0>>,
@@ -311,7 +337,13 @@ deserialize_simple_64_bit_integer_key_value_test() ->
 	[{Key, Value}] = bson:deserialize(Bin, pl),
 	% Verify the correctness of the values
 	"name" = binary_to_list(Key),
-	16#7000000000000000 = Value.
+	16#7000000000000000 = Value,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	16#7000000000000000 = dict:fetch(bson:utf8("name"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	16#7000000000000000 = orddict:fetch(bson:utf8("name"), OrdDict).
 
 deserialize_simple_two_layer_document_test() ->
 	Bin = <<33,0,0,0,3,110,97,109,101,0,22,0,0,0,18,105,110,116,101,103,101,114,0,0,0,0,0,0,0,0,112,0,0>>,
@@ -320,7 +352,15 @@ deserialize_simple_two_layer_document_test() ->
 	% Verify the correctness of the values
 	"name" = binary_to_list(Key),
 	"integer" = binary_to_list(Key2),
-	16#7000000000000000 = Integer.
+	16#7000000000000000 = Integer,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	Dict2 = dict:fetch(bson:utf8("name"), Dict),
+	16#7000000000000000 = dict:fetch(bson:utf8("integer"), Dict2),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	OrdDict2 = orddict:fetch(bson:utf8("name"), OrdDict),
+	16#7000000000000000 = orddict:fetch(bson:utf8("integer"), OrdDict2).
 
 deserialize_simple_array_of_integers_document_test() ->
 	Bin = <<48,0,0,0,4,105,110,116,101,103,101,114,115,0,33,0,0,0,16,48,0,1,0,0,0,16,49,0,2,0,0,0,16,50,0,3,0,0,0,16,51,0,4,0,0,0,0,0>>,
@@ -329,7 +369,13 @@ deserialize_simple_array_of_integers_document_test() ->
 	[{Key, Value}] = Doc,
 	% Verify the correctness of the values
 	"integers" = binary_to_list(Key),
-	[1,2,3,4] = Value.
+	[1,2,3,4] = Value,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	[1,2,3,4] = dict:fetch(bson:utf8("integers"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	[1,2,3,4] = orddict:fetch(bson:utf8("integers"), OrdDict).
 	
 deserialize_simple_regexp_document_test() ->
 	Bin = <<20,0,0,0,11,114,101,103,101,120,112,0,116,101,115,116,0,115,0,0>>,
@@ -340,7 +386,19 @@ deserialize_simple_regexp_document_test() ->
 	"regexp" = binary_to_list(Key),
 	regexp = element(1, Value),
 	"test" = binary_to_list(element(2, Value)),
-	"s" = binary_to_list(element(3, Value)).
+	"s" = binary_to_list(element(3, Value)),
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	Regexp = dict:fetch(bson:utf8("regexp"), Dict),
+	regexp = element(1, Regexp),
+	"test" = binary_to_list(element(2, Regexp)),
+	"s" = binary_to_list(element(3, Regexp)),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	Regexp2 = orddict:fetch(bson:utf8("regexp"), OrdDict),
+	regexp = element(1, Regexp2),
+	"test" = binary_to_list(element(2, Regexp2)),
+	"s" = binary_to_list(element(3, Regexp2)).
 
 deserialize_simple_objectid_document_test() ->
 	Bin = <<27,0,0,0,7,111,98,106,101,99,116,105,100,0,79,141,126,31,149,241,59,67,112,0,0,0,0>>,
@@ -350,7 +408,17 @@ deserialize_simple_objectid_document_test() ->
 	% Verify the correctness of the values
 	"objectid" = binary_to_list(Key),
 	objectid = element(1, Value),
-	<<79,141,126,31,149,241,59,67,112,0,0,0>> = element(2, Value).
+	<<79,141,126,31,149,241,59,67,112,0,0,0>> = element(2, Value),
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	ObjectId = dict:fetch(bson:utf8("objectid"), Dict),
+	objectid = element(1, ObjectId),
+	<<79,141,126,31,149,241,59,67,112,0,0,0>> = element(2, ObjectId),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	ObjectId2 = orddict:fetch(bson:utf8("objectid"), OrdDict),
+	objectid = element(1, ObjectId2),
+	<<79,141,126,31,149,241,59,67,112,0,0,0>> = element(2, ObjectId2).
 
 deserialize_simple_boolean_document_test() ->
 	Bin = <<12,0,0,0,8,98,111,111,108,0,1,0>>,
@@ -365,7 +433,13 @@ deserialize_simple_boolean_document_test() ->
 	Doc2 = bson:deserialize(Bin2, pl),
 	[{Key2, Value2}] = Doc2,
 	"bool" = binary_to_list(Key2),
-	false = Value2.
+	false = Value2,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	true = dict:fetch(bson:utf8("bool"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	true = orddict:fetch(bson:utf8("bool"), OrdDict).
 
 deserialize_simple_null_document_test() ->
 	Bin = <<11,0,0,0,10,98,111,111,108,0,0>>,
@@ -374,7 +448,13 @@ deserialize_simple_null_document_test() ->
 	[{Key, Value}] = Doc,
 	% Verify the correctness of the values
 	"bool" = binary_to_list(Key),
-	null = Value.
+	null = Value,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	null = dict:fetch(bson:utf8("bool"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	null = orddict:fetch(bson:utf8("bool"), OrdDict).
 
 deserialize_simple_datetime_document_test() ->
 	Bin = <<19,0,0,0,9,100,97,116,101,0,233,77,130,193,54,1,0,0,0>>,
@@ -383,7 +463,13 @@ deserialize_simple_datetime_document_test() ->
 	[{Key, Value}] = Doc,
 	% Verify the correctness of the values
 	"date" = binary_to_list(Key),
-	{1,334686,404073} = Value.
+	{1,334686,404073} = Value,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	{1,334686,404073} = dict:fetch(bson:utf8("date"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	{1,334686,404073} = orddict:fetch(bson:utf8("date"), OrdDict).
 
 deserialize_simple_symbol_document_test() ->
 	Bin = <<22,0,0,0,14,115,121,109,98,111,108,0,5,0,0,0,97,116,111,109,0,0>>,
@@ -392,7 +478,13 @@ deserialize_simple_symbol_document_test() ->
 	[{Key, Value}] = Doc,
 	% Verify the correctness of the values
 	"symbol" = binary_to_list(Key),
-	atom = Value.
+	atom = Value,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	atom = dict:fetch(bson:utf8("symbol"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	atom = orddict:fetch(bson:utf8("symbol"), OrdDict).
 	
 deserialize_simple_minkey_document_test() ->
 	Bin = <<10,0,0,0,255,107,101,121,0,0>>,
@@ -401,7 +493,13 @@ deserialize_simple_minkey_document_test() ->
 	[{Key, Value}] = Doc,
 	% Verify the correctness of the values
 	"key" = binary_to_list(Key),
-	{minkey} = Value.
+	{minkey} = Value,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	{minkey} = dict:fetch(bson:utf8("key"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	{minkey} = orddict:fetch(bson:utf8("key"), OrdDict).
 
 deserialize_simple_maxkey_document_test() ->
 	Bin = <<10,0,0,0,127,107,101,121,0,0>>,
@@ -410,7 +508,13 @@ deserialize_simple_maxkey_document_test() ->
 	[{Key, Value}] = Doc,
 	% Verify the correctness of the values
 	"key" = binary_to_list(Key),
-	{maxkey} = Value.
+	{maxkey} = Value,
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	{maxkey} = dict:fetch(bson:utf8("key"), Dict),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	{maxkey} = orddict:fetch(bson:utf8("key"), OrdDict).
 
 deserialize_simple_javascript_document_test() ->
 	Bin = <<28,0,0,0,13,99,111,100,101,0,13,0,0,0,102,117,110,99,116,105,111,110,40,41,123,125,0,0>>,
@@ -420,7 +524,17 @@ deserialize_simple_javascript_document_test() ->
 	% Verify the correctness of the values
 	"code" = binary_to_list(Key),
 	js = element(1, Value),
-	<<"function(){}">> = element(2, Value).
+	<<"function(){}">> = element(2, Value),
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	Code = dict:fetch(bson:utf8("code"), Dict),
+	js = element(1, Code),
+	<<"function(){}">> = element(2, Code),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	Code2 = orddict:fetch(bson:utf8("code"), OrdDict),
+	js = element(1, Code2),
+	<<"function(){}">> = element(2, Code2).
 
 deserialize_simple_javascript_scope_document_test() ->
 	Bin = <<44,0,0,0,15,99,111,100,101,0,33,0,0,0,13,0,0,0,102,117,110,99,116,105,111,110,40,41,123,125,0,12,0,0,0,16,118,0,1,0,0,0,0,0>>,
@@ -431,7 +545,19 @@ deserialize_simple_javascript_scope_document_test() ->
 	"code" = binary_to_list(Key),
 	js = element(1, Value),
 	<<"function(){}">> = element(2, Value),
-	[{<<"v">>,1}] = element(3, Value).
+	[{<<"v">>,1}] = element(3, Value),
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	Code = dict:fetch(bson:utf8("code"), Dict),
+	js = element(1, Code),
+	<<"function(){}">> = element(2, Code),
+	1 = dict:fetch(bson:utf8("v"), element(3, Code)),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	Code2 = orddict:fetch(bson:utf8("code"), OrdDict),
+	js = element(1, Code2),
+	<<"function(){}">> = element(2, Code2),
+	1 = orddict:fetch(bson:utf8("v"), element(3, Code2)).
 
 deserialize_simple_binary_document_test() ->
 	Bin = <<20,0,0,0,5,98,105,110,0,5,0,0,0,0,104,101,108,108,111,0>>,
@@ -442,8 +568,19 @@ deserialize_simple_binary_document_test() ->
 	"bin" = binary_to_list(Key),
 	bin = element(1, Value),
 	0 = element(2, Value),
-	<<"hello">> = element(3, Value).
-	% ?debugFmt("~p~n", [Doc]).
+	<<"hello">> = element(3, Value),
+	% Unpack as binary dictionary
+	Dict = bson:deserialize(Bin, dict),
+	Binary = dict:fetch(bson:utf8("bin"), Dict),
+	bin = element(1, Binary),
+	0 = element(2, Binary),
+	<<"hello">> = element(3, Binary),
+	% Unpack as ordered dictionary
+	OrdDict = bson:deserialize(Bin, orddict),
+	Binary2 = orddict:fetch(bson:utf8("bin"), OrdDict),
+	bin = element(1, Binary2),
+	0 = element(2, Binary2),
+	<<"hello">> = element(3, Binary2).
 
 % %
 % % Simple benchmark

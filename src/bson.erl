@@ -212,12 +212,18 @@ deserialize(BinDoc, Type) ->
 	deserialize_doc(BinDoc, Type, doc).
 	
 deserialize_doc(BinDoc, Type, DocType) ->
+	% erlang:display("============================================== deserialize_doc"),
+	% erlang:display(Type),
 	% Grab the size of the doc
 	<<NumberOfBytes:32/unsigned-little,Rest/binary>> = BinDoc,
 	% Build the end Object type based on the provided type
 	FinalObject = case Type of
 			pl ->
-				[]
+				[];
+			dict ->
+				dict:new();
+			orddict ->
+				orddict:new()
 		end,
 	
 	% Ensure the correct size
@@ -319,7 +325,7 @@ deserialize_elements_pl(Rest, Object, ResultType, DocType) ->
 			% Unpack the actual doc
 			<<0, DocBin:Size/binary, FinalRest/binary>> = Rest1,
 			% Unpack the document
-			Doc = deserialize_doc(DocBin, ResultType, array),
+			Doc = deserialize_doc(DocBin, pl, array),
 			% Pack up the result
 			pack_object(ResultType, Object, utf8(Name), Doc, DocType);
 		16#07 ->
@@ -458,6 +464,9 @@ deserialize_elements_pl(Rest, Object, ResultType, DocType) ->
 	end.
 
 pack_object(Type, Object, Key, Value, DocType) ->
+	% erlang:display("=================================== pack_object"),
+	% erlang:display(DocType),
+	
 	case Type of
 		pl ->
 			case DocType of
@@ -466,6 +475,20 @@ pack_object(Type, Object, Key, Value, DocType) ->
 				_ ->				
 					lists:merge([{Key, Value}], Object)
 			end;
+		dict ->
+			case DocType of
+				array ->
+					dict:append(Key, Value, Object);
+				_ ->
+					dict:store(Key, Value, Object)
+			end;
+		orddict ->
+			case DocType of
+				array ->
+					orddict:append(Key, Value, Object);
+				_ ->
+					orddict:store(Key, Value, Object)
+			end;			
 		_ ->
 			[]
 	end.
