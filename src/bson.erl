@@ -3,7 +3,7 @@
 
 % Exported functions for the bson parser
 -export ([serialize/1, deserialize/1, deserialize/2, deserialize/3]).
--export ([utf8/1, bin/1, bin/2, minkey/0, maxkey/0, javascript/1, javascript/2, regexp/2, gen_objectid/1, objectid/1, objectid/3, timestamp_to_bson_time/1, bsom_time_to_timestamp/1]).
+-export ([utf8/1, bin/1, bin/2, minkey/0, maxkey/0, javascript/1, javascript/2, regexp/2, gen_objectid/1, objectid/1, objectid/3, timestamp_to_bson_time/1, bson_time_to_timestamp/1]).
 -export ([hexstr_to_bin/1]).
 
 % Exporting all availble types
@@ -345,7 +345,7 @@ deserialize_elements_pl(Rest, Object, ResultType, DocType, Single) ->
 			% Read the datetime 64bit value
 			<<IntegerDateTime:64/unsigned-little, FinalRest/binary>> = Rest1,
 			% Pack up the result
-			pack_object(ResultType, Object, utf8(Name), bsom_time_to_timestamp(IntegerDateTime), DocType);
+			pack_object(ResultType, Object, utf8(Name), bson_time_to_timestamp(IntegerDateTime), DocType);
 		16#0B ->
 			% Locate the position of the cstring
 			{Pos, _} = binary:match (DocRest, <<0>>),
@@ -477,7 +477,7 @@ hexstr_to_bin([X,Y|T], Acc) ->
 timestamp_to_bson_time({MegaSecs, Seconds, MicroSec}) ->
 	MegaSecs * 1000000 * 1000000 + Seconds * 1000000 + MicroSec.
 
-bsom_time_to_timestamp(Timestamp) ->
+bson_time_to_timestamp(Timestamp) ->
 	{Timestamp div 1000000000000, Timestamp div 1000000 rem 1000000, Timestamp rem 1000000}.
 
 %
