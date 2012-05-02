@@ -169,15 +169,15 @@ simple_document_with_null_or_undefined_test() ->
 
 simple_document_with_datetime_test() ->
 	% Build a simple datetime key-value doc and serialize the doc
-	Doc = orddict:append(bson:utf8("date"), bson:bsom_time_to_timestamp(1334686404073), orddict:new()),
+	Doc = orddict:append(bson:utf8("date"), bson:bson_time_to_timestamp(1334686404073), orddict:new()),
 	BinDoc = bson:serialize(Doc),
 	<<19,0,0,0,9,100,97,116,101,0,233,77,130,193,54,1,0,0,0>> = BinDoc,
 	% Build a simple datetime key-value proplist and serialize the doc
-	DocProp = [{bson:utf8("date"), bson:bsom_time_to_timestamp(1334686404073)}],
+	DocProp = [{bson:utf8("date"), bson:bson_time_to_timestamp(1334686404073)}],
 	BinDocProp = bson:serialize(DocProp),
 	<<19,0,0,0,9,100,97,116,101,0,233,77,130,193,54,1,0,0,0>> = BinDocProp,
 	% Build a simple datetime key-value dict and serialize the doc
-	DocDict = dict:append(bson:utf8("date"), bson:bsom_time_to_timestamp(1334686404073), dict:new()),
+	DocDict = dict:append(bson:utf8("date"), bson:bson_time_to_timestamp(1334686404073), dict:new()),
 	BinDocDict = bson:serialize(DocDict),
 	<<19,0,0,0,9,100,97,116,101,0,233,77,130,193,54,1,0,0,0>> = BinDocDict.
 
