@@ -9,7 +9,7 @@
 simple_single_level_two_attribute_serialization_test() ->
   % Build a simple string key-value dict and serialize the doc
   Doc = orddict:append(bson:utf8("b"), 2, orddict:append(bson:utf8("name"), bson:utf8("value"), orddict:new())),
-  BinDoc = bson:serialize(Doc), 
+  BinDoc = bson:serialize(Doc),
   <<28,0,0,0,16,98,0,2,0,0,0,2,110,97,109,101,0,6,0,0,0,118,97,108,117,101,0,0>> = BinDoc,
   % Build a simple string key-value proplist and serialize the doc
   DocProp = [{bson:utf8("name"), bson:utf8("value")}, {bson:utf8("b"), 2}],
@@ -27,7 +27,7 @@ simple_single_level_float_doc_serialization_test() ->
   <<19,0,0,0,1,110,97,109,101,0,113,61,10,215,163,112,245,63,0>> = BinDoc,
   % Build a simple float key-value proplist and serialize the doc
   DocProp = [{bson:utf8("name"), 1.34}],
-  BinDocProp = bson:serialize(DocProp), 
+  BinDocProp = bson:serialize(DocProp),
   <<19,0,0,0,1,110,97,109,101,0,113,61,10,215,163,112,245,63,0>> = BinDocProp,
   % Build a simple float key-value dict and serialize the doc
   DocDict = dict:append(bson:utf8("name"), 1.34, dict:new()),
@@ -41,7 +41,7 @@ simple_single_level_32_bit_integer_doc_serialization_test() ->
   <<15,0,0,0,16,110,97,109,101,0,232,3,0,0,0>> = BinDoc,
   % Build a simple integer key-value proplist and serialize the doc
   DocProp = [{bson:utf8("name"), 1000}],
-  BinDocProp = bson:serialize(DocProp), 
+  BinDocProp = bson:serialize(DocProp),
   <<15,0,0,0,16,110,97,109,101,0,232,3,0,0,0>> = BinDocProp,
   % Build a simple integer key-value dict and serialize the doc
   DocDict = dict:append(bson:utf8("name"), 1000, dict:new()),
@@ -55,13 +55,13 @@ simple_single_level_64_bit_integer_doc_serialization_test() ->
   <<19,0,0,0,18,110,97,109,101,0,0,0,0,0,0,0,0,112,0>> = BinDoc,
   % Build a simple integer key-value proplist and serialize the doc
   DocProp = [{bson:utf8("name"), 16#7000000000000000}],
-  BinDocProp = bson:serialize(DocProp), 
+  BinDocProp = bson:serialize(DocProp),
   <<19,0,0,0,18,110,97,109,101,0,0,0,0,0,0,0,0,112,0>> = BinDocProp,
   % Build a simple integer key-value dict and serialize the doc
   DocDict = dict:append(bson:utf8("name"), 16#7000000000000000, dict:new()),
   BinDocDict = bson:serialize(DocDict),
   <<19,0,0,0,18,110,97,109,101,0,0,0,0,0,0,0,0,112,0>> = BinDocDict.
-  
+
 simple_two_level_document_with_values_test() ->
   % Build a simple integer key-value doc and serialize the doc
   InnerDoc = orddict:append(bson:utf8("integer"), 16#7000000000000000, orddict:new()),
@@ -70,12 +70,28 @@ simple_two_level_document_with_values_test() ->
   <<33,0,0,0,3,110,97,109,101,0,22,0,0,0,18,105,110,116,101,103,101,114,0,0,0,0,0,0,0,0,112,0,0>> = BinDoc,
   % Build a simple integer key-value proplist and serialize the doc
   DocProp = [{bson:utf8("name"), {bson:utf8("integer"), 16#7000000000000000}}],
-  BinDocProp = bson:serialize(DocProp), 
+  BinDocProp = bson:serialize(DocProp),
   <<33,0,0,0,3,110,97,109,101,0,22,0,0,0,18,105,110,116,101,103,101,114,0,0,0,0,0,0,0,0,112,0,0>> = BinDocProp,
   % Build a simple integer key-value dict and serialize the doc
   DocDict = dict:append(bson:utf8("name"), dict:append(bson:utf8("integer"), 16#7000000000000000, dict:new()), dict:new()),
   BinDocDict = bson:serialize(DocDict),
   <<33,0,0,0,3,110,97,109,101,0,22,0,0,0,18,105,110,116,101,103,101,114,0,0,0,0,0,0,0,0,112,0,0>> = BinDocDict.
+
+simple_two_level_document_with_multiple_values_test() ->
+  % Build a simple integer key-value proplist and serialize the doc
+  DocProp = [{bson:utf8("name"), [{bson:utf8("integer"), 16#7000000000000000}, {bson:utf8("bool"), true}]}],
+  BinDocProp = bson:serialize(DocProp),
+  <<40,0,0,0,3,110,97,109,101,0,29,0,0,0,18,105,110,116,101,103,101,114,0,0,0,0,0,0,0,0,112,8, 98,111,111,108,0,1,0,0>> = BinDocProp.
+
+deserialize_simple_two_level_document_with_multiple_values_test() ->
+  Bin = <<40,0,0,0,3,110,97,109,101,0,29,0,0,0,18,105,110,116,101,103,101,114,0,0,0,0,0,0,0,0,112,8, 98,111,111,108,0,1,0,0>>,
+  % Unpack the binary
+  Values = bson:deserialize(Bin, pl),
+  [{Key, Value}] = bson:deserialize(Bin, pl),
+  % Verify the correctness of the values
+  "name" = binary_to_list(Key),
+  16#7000000000000000 = proplists:get_value(<<"integer">>, Value),
+  true = proplists:get_value(<<"bool">>, Value).
 
 simple_document_with_array_of_integers_test() ->
   % Build a simple integer key-value doc and serialize the doc
@@ -84,13 +100,13 @@ simple_document_with_array_of_integers_test() ->
   <<48,0,0,0,4,105,110,116,101,103,101,114,115,0,33,0,0,0,16,48,0,1,0,0,0,16,49,0,2,0,0,0,16,50,0,3,0,0,0,16,51,0,4,0,0,0,0,0>> = BinDoc,
   % Build a simple integer key-value proplist and serialize the doc
   DocProp = [{bson:utf8("integers"), [1,2,3,4]}],
-  BinDocProp = bson:serialize(DocProp), 
+  BinDocProp = bson:serialize(DocProp),
   <<48,0,0,0,4,105,110,116,101,103,101,114,115,0,33,0,0,0,16,48,0,1,0,0,0,16,49,0,2,0,0,0,16,50,0,3,0,0,0,16,51,0,4,0,0,0,0,0>> = BinDocProp,
   % Build a simple integer key-value dict and serialize the doc
   DocDict = dict:append(bson:utf8("integers"), [1,2,3,4], dict:new()),
   BinDocDict = bson:serialize(DocDict),
   <<48,0,0,0,4,105,110,116,101,103,101,114,115,0,33,0,0,0,16,48,0,1,0,0,0,16,49,0,2,0,0,0,16,50,0,3,0,0,0,16,51,0,4,0,0,0,0,0>> = BinDocDict.
-  
+
 simple_document_with_regexp_test() ->
   % Build a simple regexp key-value doc and serialize the doc
   Doc = orddict:append(bson:utf8("regexp"), bson:regexp("test", "s"), orddict:new()),
@@ -250,7 +266,7 @@ simple_document_with_javascript_code_test() ->
   DocDict = dict:append(bson:utf8("code"), bson:javascript(bson:utf8("function(){}"), dict:append(bson:utf8("v"), 1, dict:new())), dict:new()),
   BinDocDict = bson:serialize(DocDict),
   <<44,0,0,0,15,99,111,100,101,0,33,0,0,0,13,0,0,0,102,117,110,99,116,105,111,110,40,41,123,125,0,12,0,0,0,16,118,0,1,0,0,0,0,0>> = BinDocDict.
-  
+
 simple_document_with_binary_test() ->
   % Build a simple symbol key-value doc and serialize the doc
   Doc = orddict:append(bson:utf8("bin"), bson:bin(list_to_binary("hello")), orddict:new()),
@@ -376,7 +392,7 @@ deserialize_simple_array_of_integers_document_test() ->
   % Unpack as ordered dictionary
   OrdDict = bson:deserialize(Bin, orddict),
   [1,2,3,4] = orddict:fetch(bson:utf8("integers"), OrdDict).
-  
+
 deserialize_simple_regexp_document_test() ->
   Bin = <<20,0,0,0,11,114,101,103,101,120,112,0,116,101,115,116,0,115,0,0>>,
   % Upack the binary
@@ -485,7 +501,7 @@ deserialize_simple_symbol_document_test() ->
   % Unpack as ordered dictionary
   OrdDict = bson:deserialize(Bin, orddict),
   atom = orddict:fetch(bson:utf8("symbol"), OrdDict).
-  
+
 deserialize_simple_minkey_document_test() ->
   Bin = <<10,0,0,0,255,107,101,121,0,0>>,
   % Upack the binary
@@ -590,7 +606,7 @@ deserialize_first_level_key_test() ->
   InnerDoc = orddict:append(bson:utf8("integer"), 16#7000000000000000, orddict:new()),
   Doc = orddict:append(bson:utf8("name"), InnerDoc, orddict:new()),
   BinDoc = bson:serialize(Doc),
-  
+
   % Fetch the doc based on the top level name tag
   SelectedDoc = bson:deserialize(BinDoc, [<<"name">>], pl),
   [{<<"name">>,[{<<"integer">>,8070450532247928832}]}] = SelectedDoc,
@@ -598,7 +614,7 @@ deserialize_first_level_key_test() ->
   % Fetch the doc based on the name.integer level tag
   SelectedDoc2 = bson:deserialize(BinDoc, [<<"name">>, <<"integer">>], pl),
   [{<<"integer">>,8070450532247928832}] = SelectedDoc2,
-  
+
   % No match found
   {err, nomatch} = bson:deserialize(BinDoc, [<<"name2">>], pl).
 
@@ -621,66 +637,66 @@ throws_error_during_serialization_due_to_illegal_key_test() ->
 % 	pl_test(200000),
 % 	{_, PLElapsed} = erlang:statistics(runtime),
 % 	?debugFmt("~p~n", [PLElapsed]).
-% 
+%
 % simple_perf_dict_test() ->
 % 	erlang:statistics(runtime),
 % 	dict_test(200000),
 % 	{_, PLElapsed} = erlang:statistics(runtime),
 % 	?debugFmt("~p~n", [PLElapsed]).
-% 
+%
 % simple_perf_orddict_test() ->
 % 	erlang:statistics(runtime),
 % 	orddict_test(200000),
 % 	{_, PLElapsed} = erlang:statistics(runtime),
 % 	?debugFmt("~p~n", [PLElapsed]).
-% 
+%
 % simple_perf_match_test() ->
 % 	% Serialize the doc
 % 	DocDict = [{bson:utf8("name"), {bson:utf8("integer"), 16#7000000000000000}}],
 % 	Bin = bson:serialize(DocDict),
 % 	% Start test 1
 % 	erlang:statistics(runtime),
-% 	bson:test1(200000, Bin),	
+% 	bson:test1(200000, Bin),
 % 	{_, PLElapsed} = erlang:statistics(runtime),
 % 	?debugFmt("simple_perf_scan_vs_whole_doc_test :: ~p~n", [PLElapsed]).
-% 	
+%
 % simple_perf_scan_vs_whole_doc_test() ->
 % 	% Serialize the doc
 % 	DocDict = [{bson:utf8("name"), {bson:utf8("integer"), 16#7000000000000000}}],
 % 	Bin = bson:serialize(DocDict),
 % 	% Start test 1
 % 	erlang:statistics(runtime),
-% 	scan_test(200000, Bin),	
+% 	scan_test(200000, Bin),
 % 	{_, PLElapsed} = erlang:statistics(runtime),
 % 	?debugFmt("simple_perf_scan_vs_whole_doc_test :: ~p~n", [PLElapsed]).
-% 
+%
 % simple_perf_scan_vs_whole_doc_2_test() ->
 % 	% Serialize the doc
 % 	DocDict = [{bson:utf8("name"), {bson:utf8("integer"), 16#7000000000000000}}],
 % 	Bin = bson:serialize(DocDict),
 % 	% Start test 1
 % 	erlang:statistics(runtime),
-% 	scan_test_2(200000, Bin),	
+% 	scan_test_2(200000, Bin),
 % 	{_, PLElapsed} = erlang:statistics(runtime),
 % 	?debugFmt("simple_perf_scan_vs_whole_doc_2_test :: ~p~n", [PLElapsed]).
-% 	
+%
 % scan_test(0, _) -> ok;
 % scan_test(N, Bin) ->
 % 	_DocProp = bson:deserialize(Bin, pl),
 % 	scan_test(N - 1, Bin).
-% 
+%
 % scan_test_2(0, _) -> ok;
 % scan_test_2(N, Bin) ->
 % 	_DocProp = bson:deserialize(Bin, [<<"name">>, <<"integer">>], pl),
 % 	scan_test_2(N - 1, Bin).
-% 	
+%
 % pl_test(0) -> ok;
-% pl_test(N) ->	
+% pl_test(N) ->
 % 	DocProp = [{bson:utf8("name"), bson:utf8("value")}],
 % 	_BinDocProp = bson:serialize(DocProp),
 % 	_DocProp = bson:deserialize(_BinDocProp, pl),
 % 	pl_test(N - 1).
-% 
+%
 % dict_test(0) -> ok;
 % dict_test(N) ->
 % 	% Build a simple string key-value dict and serialize the doc
@@ -688,11 +704,11 @@ throws_error_during_serialization_due_to_illegal_key_test() ->
 % 	_BinDocDict = bson:serialize(DocDict),
 % 	_DocProp = bson:deserialize(_BinDocDict, dict),
 % 	dict_test(N - 1).
-% 
+%
 % orddict_test(0) -> ok;
 % orddict_test(N) ->
 % 	Doc = orddict:append(bson:utf8("name"), bson:utf8("value"), orddict:new()),
-% 	_BinDoc = bson:serialize(Doc),	
+% 	_BinDoc = bson:serialize(Doc),
 % 	_DocProp = bson:deserialize(_BinDoc, orddict),
 % 	orddict_test(N - 1).
 
@@ -713,4 +729,3 @@ throws_error_during_serialization_due_to_illegal_key_test() ->
 
 
 
-	

@@ -16,7 +16,7 @@
 serialize(Doc) -> serialize_doc(Doc, false).
 serialize(Doc, CheckKeys) ->
 	serialize_doc(Doc, CheckKeys).
-	
+
 serialize_doc(Doc, CheckKeys) ->
 	case Doc of
 		Doc when is_tuple(Doc), element(1, Doc) == dict ->
@@ -31,19 +31,19 @@ serialize_doc(Doc, CheckKeys) ->
 			list_to_binary([<<?put_int32u(byte_size(Bin) + 4 + 1)>>, Bin, <<0>>])
 	end.
 
-serialize_doc_objects([Head|Tail], CheckKeys) ->		
+serialize_doc_objects([Head|Tail], CheckKeys) ->
 	% Handle the situation where the value is a dict
 	FinalHeadValue = case Head of
 		{HeadName, [HeadValue]} when is_tuple(HeadValue), element(1, HeadValue) == dict ->
 			{HeadName, [dict:to_list(HeadValue)]};
 		_ ->
 			Head
-	end,	
+	end,
 	% If we have a Check Key throw
 	Valid = case CheckKeys of
 	  true ->
 	    % unpack the variable
-      {NameVariable, _} = FinalHeadValue,      
+      {NameVariable, _} = FinalHeadValue,
       % if we have the first character $ it's an illegal key
       case NameVariable of
         <<"$", _/binary>> -> false;
@@ -61,7 +61,7 @@ serialize_doc_objects([Head|Tail], CheckKeys) ->
   case Valid of
     true ->
     	% Match the case of the Head
-    	BinaryList = case FinalHeadValue of				
+    	BinaryList = case FinalHeadValue of
     		{Name, {maxkey}} when is_binary(Name) ->
     			[list_to_binary([<<16#7f>>, Name, <<0>>])];
     		{Name, [{maxkey}]} when is_binary(Name) ->
@@ -100,7 +100,7 @@ serialize_doc_objects([Head|Tail], CheckKeys) ->
     			[list_to_binary([<<16#0D>>, Name, <<0>>, <<?put_int32u(byte_size(Code) + 1)>>, Code, <<0>>])];
     		{Name, {MegaSecs, Seconds, Micro}} ->
     			[list_to_binary([<<16#09>>, Name, <<0>>, <<?put_int64(timestamp_to_bson_time({MegaSecs, Seconds, Micro}))>>])];
-    		{Name, Value} when is_binary(Name), is_boolean(Value) -> 			
+    		{Name, Value} when is_binary(Name), is_boolean(Value) ->
     			case Value of
     				true->
     					[list_to_binary([<<16#08>>, Name, <<0>>, <<1>>])];
@@ -108,26 +108,26 @@ serialize_doc_objects([Head|Tail], CheckKeys) ->
     					[list_to_binary([<<16#08>>, Name, <<0>>, <<0>>])]
     			end;
     		{Name, Value} when is_binary(Name), is_atom(Value) ->
-    			ValueBin = atom_to_binary(Value, utf8),			
+    			ValueBin = atom_to_binary(Value, utf8),
     			[list_to_binary([<<16#0E>>, Name, <<0>>, <<?put_int32u(byte_size(ValueBin) + 1)>>, ValueBin, <<0>>])];
-    		{Name, [[Value]]} when is_binary(Name), is_tuple(Value) -> 			
+    		{Name, [[Value]]} when is_binary(Name), is_tuple(Value) ->
     			% trigger serialization of all the values
     			[Object] = serialize_doc_objects([Value], CheckKeys),
     			[list_to_binary([<<16#03>>, Name, <<0>>, <<?put_int32u(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
-    		{Name, [Value]} when is_binary(Name), is_list(Value) -> 			
+    		{Name, [Value]} when is_binary(Name), is_list(Value) ->
     			% Serialize the array
-    			BinDoc = serialize_array(0, Value, CheckKeys),			
+    			BinDoc = serialize_array(0, Value, CheckKeys),
     			% trigger serialization of all the values
     			[list_to_binary([<<16#04>>, Name, <<0>>, <<?put_int32u(4 + byte_size(BinDoc) + 1)>>, BinDoc, <<0>>])];
     		{Name, Value} when is_binary(Name), is_binary(Value) ->
-    			[list_to_binary([<<16#02>>, Name, <<0>>, <<?put_int32u(byte_size(Value) + 1)>>, Value, <<0>>])];			
-    		{Name, Value} when is_binary(Name), is_float(Value) -> 			
+    			[list_to_binary([<<16#02>>, Name, <<0>>, <<?put_int32u(byte_size(Value) + 1)>>, Value, <<0>>])];
+    		{Name, Value} when is_binary(Name), is_float(Value) ->
     			[list_to_binary([<<16#01>>, Name, <<0>>, <<?put_float(Value)>>])];
-    		{Name, Value} when is_binary(Name), is_integer(Value), ?fits_int32(Value) -> 			
+    		{Name, Value} when is_binary(Name), is_integer(Value), ?fits_int32(Value) ->
     			[list_to_binary([<<16#10>>, Name, <<0>>, <<?put_int32(Value)>>])];
-    		{Name, Value} when is_binary(Name), is_integer(Value), ?fits_int64(Value) -> 			
+    		{Name, Value} when is_binary(Name), is_integer(Value), ?fits_int64(Value) ->
     			[list_to_binary([<<16#12>>, Name, <<0>>, <<?put_int64(Value)>>])];
-    		{Name, Value} when is_binary(Name), is_tuple(Value) -> 			
+    		{Name, Value} when is_binary(Name), is_tuple(Value) ->
     			% trigger serialization of all the values
     			[Object] = serialize_doc_objects([Value], CheckKeys),
     			[list_to_binary([<<16#03>>, Name, <<0>>, <<?put_int32u(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
@@ -141,9 +141,9 @@ serialize_doc_objects([Head|Tail], CheckKeys) ->
     			[list_to_binary([<<16#09>>, Name, <<0>>, <<?put_int64(timestamp_to_bson_time({MegaSecs, Seconds, Micro}))>>])];
     		{Name, [{objectid, ObjectId}]} when is_binary(Name), is_binary(ObjectId) ->
     			[list_to_binary([<<16#07>>, Name, <<0>>, ObjectId])];
-    		{Name, [Value]} when is_binary(Name), is_binary(Value) -> 			
+    		{Name, [Value]} when is_binary(Name), is_binary(Value) ->
     			[list_to_binary([<<16#02>>, Name, <<0>>, <<?put_int32u(byte_size(Value) + 1)>>, Value, <<0>>])];
-    		{Name, [Value]} when is_binary(Name), is_boolean(Value) -> 			
+    		{Name, [Value]} when is_binary(Name), is_boolean(Value) ->
     			case Value of
     				true->
     					[list_to_binary([<<16#08>>, Name, <<0>>, <<1>>])];
@@ -151,13 +151,13 @@ serialize_doc_objects([Head|Tail], CheckKeys) ->
     					[list_to_binary([<<16#08>>, Name, <<0>>, <<0>>])]
     			end;
     		{Name, [Value]} when is_binary(Name), is_atom(Value) ->
-    			ValueBin = atom_to_binary(Value, utf8),			
+    			ValueBin = atom_to_binary(Value, utf8),
     			[list_to_binary([<<16#0E>>, Name, <<0>>, <<?put_int32u(byte_size(ValueBin) + 1)>>, ValueBin, <<0>>])];
-    		{Name, [Value]} when is_binary(Name), is_float(Value) -> 			
+    		{Name, [Value]} when is_binary(Name), is_float(Value) ->
     			[list_to_binary([<<16#01>>, Name, <<0>>, <<?put_float(Value)>>])];
-    		{Name, [Value]} when is_binary(Name), is_integer(Value), ?fits_int32(Value) -> 			
+    		{Name, [Value]} when is_binary(Name), is_integer(Value), ?fits_int32(Value) ->
     			[list_to_binary([<<16#10>>, Name, <<0>>, <<?put_int32(Value)>>])];
-    		{Name, [Value]} when is_binary(Name), is_integer(Value), ?fits_int64(Value) -> 			
+    		{Name, [Value]} when is_binary(Name), is_integer(Value), ?fits_int64(Value) ->
     			[list_to_binary([<<16#12>>, Name, <<0>>, <<?put_int64(Value)>>])];
     		{Name, [Value|_]} when is_binary(Name), is_tuple(Value) == false, is_list(Value) == false ->
     			{_, ArrayValue} = Head,
@@ -165,7 +165,10 @@ serialize_doc_objects([Head|Tail], CheckKeys) ->
     			BinDoc = serialize_array(0, ArrayValue, CheckKeys),
     			% trigger serialization of all the values
     			[list_to_binary([<<16#04>>, Name, <<0>>, <<?put_int32u(4 + byte_size(BinDoc) + 1)>>, BinDoc, <<0>>])];
-    		_ -> 
+        {Name, Value} when is_binary(Name), is_list(Value) ->
+          Object = list_to_binary(serialize_doc_objects(Value, CheckKeys)),
+          [list_to_binary([<<16#03>>, Name, <<0>>, <<?put_int32u(4 + byte_size(Object) + 1)>>, Object, <<0>>])];
+    		_ ->
     			serialize_doc_objects(Tail, CheckKeys)
     	end,
     	% Process next document
@@ -219,11 +222,11 @@ search_for_object([Head|Tail], BinDoc, Index, Length, Type) ->
 	% Ensure we error on no match found
 	case Match of
 		nomatch -> {err, nomatch};
-		{NewIndex, _} -> 
+		{NewIndex, _} ->
 			search_for_object(Tail, BinDoc, NewIndex, Length - NewIndex, Type)
 	end;
 search_for_object([], _, FoundIndex, _, _) -> FoundIndex.
-	
+
 deserialize_doc(BinDoc, Type, DocType) when is_binary(BinDoc), is_atom(Type), is_atom(DocType) ->
 	% Grab the size of the doc
 	<<NumberOfBytes:32/unsigned-little,Rest/binary>> = BinDoc,
@@ -236,7 +239,7 @@ deserialize_doc(BinDoc, Type, DocType) when is_binary(BinDoc), is_atom(Type), is
 			orddict ->
 				orddict:new()
 		end,
-	
+
 	% Ensure the correct size
 	if
 		NumberOfBytes /= byte_size(BinDoc) ->
@@ -245,12 +248,12 @@ deserialize_doc(BinDoc, Type, DocType) when is_binary(BinDoc), is_atom(Type), is
 		true ->
 			% Legaly sized document start parsing
 			deserialize_elements_pl(Rest, FinalObject, Type, DocType, multi)
-	end.		
+	end.
 
 % Deserialize all the elements
 deserialize_elements_pl(Rest, Object, ResultType, DocType, Single) ->
 	% Unpack the type of object parameter
-	<<Type:8/unsigned-little, DocRest/binary>> = Rest,		
+	<<Type:8/unsigned-little, DocRest/binary>> = Rest,
 	% Switch on type
 	CurrentObject = case Type of
 		16#2 ->
@@ -338,7 +341,7 @@ deserialize_elements_pl(Rest, Object, ResultType, DocType, Single) ->
 			% Grab the CString name
 			<<Name:Pos/binary, Rest1/binary>> = DocRest,
 			% Read the document size
-			<<0, ObjectId:12/binary, FinalRest/binary>> = Rest1,			
+			<<0, ObjectId:12/binary, FinalRest/binary>> = Rest1,
 			% Pack up the result
 			pack_object(ResultType, Object, utf8(Name), {objectid, ObjectId}, DocType);
 		16#08 ->
@@ -347,14 +350,14 @@ deserialize_elements_pl(Rest, Object, ResultType, DocType, Single) ->
 			% Grab the CString name
 			<<Name:Pos/binary, Rest1/binary>> = DocRest,
 			% Read the document size
-			<<0, Boolean:1/binary, FinalRest/binary>> = Rest1,			
+			<<0, Boolean:1/binary, FinalRest/binary>> = Rest1,
 			% Set up the value
-			if 
+			if
 				Boolean == <<1>> ->
 					BooleanValue = true;
 				true ->
 					BooleanValue = false
-			end,			
+			end,
 			% Pack up the result
 			pack_object(ResultType, Object, utf8(Name), BooleanValue, DocType);
 		16#0A ->
@@ -408,7 +411,7 @@ deserialize_elements_pl(Rest, Object, ResultType, DocType, Single) ->
 			% Unpack the size of the binary
 			<<0, BinarySize:32/unsigned-little, SubType:8/unsigned-little, Rest2/binary>> = Rest1,
 			% Read the actual binary data
-			<<BinaryData:BinarySize/binary, FinalRest>> = Rest2,			
+			<<BinaryData:BinarySize/binary, FinalRest>> = Rest2,
 			% Create result depending on type
 			pack_object(ResultType, Object, utf8(Name), bin(SubType, BinaryData), DocType);
 		16#F ->
@@ -416,7 +419,7 @@ deserialize_elements_pl(Rest, Object, ResultType, DocType, Single) ->
 			{Pos, _Len} = binary:match (DocRest, <<0>>),
 			% Grab the CString name
 			<<Name:Pos/binary, Rest1/binary>> = DocRest,
-			% Unpack the size of the document with 
+			% Unpack the size of the document with
 			<<0, Size:32/unsigned-little, _/binary>> = Rest1,
 			% Grab the actual doc
 			<<0, JsDoc:Size/binary, FinalRest/binary>> = Rest1,
@@ -425,7 +428,7 @@ deserialize_elements_pl(Rest, Object, ResultType, DocType, Single) ->
 			% Remove trailing CString 0
 			JSSizeFinal = JSSize - 1,
 			% Let's grab the javascript
-			<<Javascript:JSSizeFinal/binary, 0, ScopeDocBin/binary>> = Rest3, 
+			<<Javascript:JSSizeFinal/binary, 0, ScopeDocBin/binary>> = Rest3,
 			% Grab the scope bson document
 			ScopeDoc = deserialize_doc(ScopeDocBin, ResultType, doc),
 			% Create result depending on type
@@ -510,7 +513,7 @@ bson_time_to_timestamp(Timestamp) ->
 %
 %	Types
 %
-	
+
 % Utf8 string representation
 -type utf8() :: unicode:unicode_binary().
 % Conversion method for string to utf8 binary, bson required utf8 strings
