@@ -86,7 +86,7 @@ simple_two_level_document_with_multiple_values_test() ->
 deserialize_simple_two_level_document_with_multiple_values_test() ->
   Bin = <<40,0,0,0,3,110,97,109,101,0,29,0,0,0,18,105,110,116,101,103,101,114,0,0,0,0,0,0,0,0,112,8, 98,111,111,108,0,1,0,0>>,
   % Unpack the binary
-  Values = bson:deserialize(Bin, pl),
+  _Values = bson:deserialize(Bin, pl),
   [{Key, Value}] = bson:deserialize(Bin, pl),
   % Verify the correctness of the values
   "name" = binary_to_list(Key),
